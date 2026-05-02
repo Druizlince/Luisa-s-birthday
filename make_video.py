@@ -4,6 +4,7 @@ Cinematic birthday video generator.
 Ken Burns + crossfade transitions + letterbox + title card.
 """
 import os, subprocess, shutil
+from PIL import Image
 
 IMGDIR = "/home/user/Luisa-s-birthday/images"
 TMPDIR = "/home/user/Luisa-s-birthday/tmp_segments"
@@ -46,28 +47,35 @@ def run(cmd, desc=""):
     return result
 
 def make_segment(photo_num, kb_config):
-    """Create a single Ken Burns clip from a photo."""
+    """Create a single Ken Burns clip — full image always visible, no cropping."""
     name, z_expr, x_expr, y_expr = kb_config
     infile = os.path.join(IMGDIR, f"photo_{photo_num:02d}.jpg")
     outfile = os.path.join(TMPDIR, f"seg_{photo_num:02d}.mp4")
 
     total_frames = PHOTO_DUR * FPS
 
-    # Replace placeholder in expressions
     x_expr = x_expr.replace("total_frames", str(total_frames))
     y_expr = y_expr.replace("total_frames", str(total_frames))
     z_expr_safe = z_expr.replace("total_frames", str(total_frames))
 
-    # Scale to large enough for zoompan, then apply Ken Burns, then letterbox
-    # We need to scale so the image fills 1920x1080 at zoom=1.0
-    # Use scale2ref-style: scale to fill then crop
-    # Scale to fill 2x frame, crop from top-center so faces are visible
-    # (portrait photos: top = where faces are; landscape: top is fine too)
+    # Calculate the size each image fits into within W×H (no cropping)
+    with Image.open(infile) as img:
+        iw, ih = img.size
+    scale = min(W / iw, H / ih)
+    fw = (int(iw * scale) // 2) * 2   # fitted width  (even)
+    fh = (int(ih * scale) // 2) * 2   # fitted height (even)
+
+    # Scale up 1.25× to give Ken Burns headroom inside the image
+    sw = (int(fw * 1.25) // 2) * 2
+    sh = (int(fh * 1.25) // 2) * 2
+
+    # zoompan crops into the 1.25× image and outputs at fitted size,
+    # then we pad to full 1920×1080 — faces always fully visible
     vf = (
-        f"scale={W*2}:{H*2}:force_original_aspect_ratio=increase,"
-        f"crop={W*2}:{H*2}:'max(0,(iw-{W*2})/2)':0,"
+        f"scale={sw}:{sh},"
         f"zoompan=z='{z_expr_safe}':x='{x_expr}':y='{y_expr}'"
-        f":d={total_frames}:s={W}x{H}:fps={FPS},"
+        f":d={total_frames}:s={fw}x{fh}:fps={FPS},"
+        f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2:black,"
         f"setsar=1,"
         f"drawbox=x=0:y=0:w={W}:h={BAR_H}:color=black@1:t=fill,"
         f"drawbox=x=0:y={H-BAR_H}:w={W}:h={BAR_H}:color=black@1:t=fill,"
