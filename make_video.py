@@ -20,29 +20,19 @@ OUTRO_DUR = 3       # outro card duration
 # Cinematic letterbox: simulate 2.39:1 by adding black bars
 BAR_H = 116         # (1080 - 1080/2.39) / 2 ≈ 116px per bar
 
-# Different Ken Burns motions for variety
-# (zoom_start, zoom_end, x_expr, y_expr)
+# Gentle Ken Burns — max zoom 1.12 so faces stay in frame
+# (name, z_expr, x_expr, y_expr)
 KB = [
-    # zoom in, center
-    ("zoom_in",    "min(zoom+0.0012,1.4)", "iw/2-(iw/zoom/2)",                     "ih/2-(ih/zoom/2)"),
-    # pan right, slight zoom
-    ("pan_right",  "1.3",                  "0+(on/(total_frames-1))*(iw-iw/zoom)", "ih/2-(ih/zoom/2)"),
-    # zoom out, center
-    ("zoom_out",   "if(lte(zoom,1.001),1.4,max(1.001,zoom-0.0015))", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"),
-    # pan left, slight zoom
-    ("pan_left",   "1.3",                  "(iw-iw/zoom)-(on/(total_frames-1))*(iw-iw/zoom)", "ih/2-(ih/zoom/2)"),
-    # zoom in from top-left
-    ("zoom_tl",    "min(zoom+0.0012,1.4)", "0",                                    "0"),
-    # pan right + down
-    ("pan_rd",     "1.3",                  "0+(on/(total_frames-1))*(iw-iw/zoom)", "0+(on/(total_frames-1))*(ih-ih/zoom)"),
-    # zoom out from bottom-right
-    ("zoom_br",    "if(lte(zoom,1.001),1.4,max(1.001,zoom-0.0015))", "iw-iw/zoom", "ih-ih/zoom"),
-    # pan left + up
-    ("pan_lu",     "1.3",                  "(iw-iw/zoom)-(on/(total_frames-1))*(iw-iw/zoom)", "(ih-ih/zoom)-(on/(total_frames-1))*(ih-ih/zoom)"),
-    # zoom in from center-bottom
-    ("zoom_cb",    "min(zoom+0.0012,1.4)", "iw/2-(iw/zoom/2)",                     "ih-ih/zoom"),
-    # zoom out, slight pan
-    ("zoom_out2",  "if(lte(zoom,1.001),1.35,max(1.001,zoom-0.0013))", "iw/2-(iw/zoom/2)+(on/(total_frames-1))*50", "ih/2-(ih/zoom/2)"),
+    ("zoom_in",   "min(zoom+0.0007,1.12)", "iw/2-(iw/zoom/2)",                          "ih/2-(ih/zoom/2)"),
+    ("pan_right", "1.10",                  "0+(on/(total_frames-1))*(iw-iw/zoom)",       "ih/2-(ih/zoom/2)"),
+    ("zoom_out",  "if(lte(zoom,1.0),1.10,max(1.0,zoom-0.0007))", "iw/2-(iw/zoom/2)",    "ih/2-(ih/zoom/2)"),
+    ("pan_left",  "1.10",                  "(iw-iw/zoom)-(on/(total_frames-1))*(iw-iw/zoom)", "ih/2-(ih/zoom/2)"),
+    ("zoom_in2",  "min(zoom+0.0007,1.12)", "iw/2-(iw/zoom/2)",                          "ih/2-(ih/zoom/2)"),
+    ("pan_right", "1.10",                  "0+(on/(total_frames-1))*(iw-iw/zoom)",       "ih/2-(ih/zoom/2)"),
+    ("zoom_out",  "if(lte(zoom,1.0),1.10,max(1.0,zoom-0.0007))", "iw/2-(iw/zoom/2)",    "ih/2-(ih/zoom/2)"),
+    ("pan_left",  "1.10",                  "(iw-iw/zoom)-(on/(total_frames-1))*(iw-iw/zoom)", "ih/2-(ih/zoom/2)"),
+    ("zoom_in",   "min(zoom+0.0007,1.12)", "iw/2-(iw/zoom/2)",                          "ih/2-(ih/zoom/2)"),
+    ("zoom_out",  "if(lte(zoom,1.0),1.10,max(1.0,zoom-0.0007))", "iw/2-(iw/zoom/2)",    "ih/2-(ih/zoom/2)"),
 ]
 
 os.makedirs(TMPDIR, exist_ok=True)
@@ -71,16 +61,16 @@ def make_segment(photo_num, kb_config):
     # Scale to large enough for zoompan, then apply Ken Burns, then letterbox
     # We need to scale so the image fills 1920x1080 at zoom=1.0
     # Use scale2ref-style: scale to fill then crop
+    # Scale to fill 2x frame, crop from top-center so faces are visible
+    # (portrait photos: top = where faces are; landscape: top is fine too)
     vf = (
         f"scale={W*2}:{H*2}:force_original_aspect_ratio=increase,"
-        f"crop={W*2}:{H*2},"
+        f"crop={W*2}:{H*2}:'max(0,(iw-{W*2})/2)':0,"
         f"zoompan=z='{z_expr_safe}':x='{x_expr}':y='{y_expr}'"
         f":d={total_frames}:s={W}x{H}:fps={FPS},"
         f"setsar=1,"
-        # Cinematic letterbox bars
         f"drawbox=x=0:y=0:w={W}:h={BAR_H}:color=black@1:t=fill,"
         f"drawbox=x=0:y={H-BAR_H}:w={W}:h={BAR_H}:color=black@1:t=fill,"
-        # Subtle vignette via blend
         f"vignette=PI/5"
     )
 
@@ -209,7 +199,7 @@ print("=" * 60)
 # 1. Create title card
 print("\n[1/4] Creating title & outro cards...")
 title_seg = make_title_card(
-    "Happy Birthday",
+    "Feliz Cumpleanos",
     "Luisa ♥",
     TITLE_DUR,
     "title_card.mp4",
